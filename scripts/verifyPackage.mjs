@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,20 +18,19 @@ function run(command, args, cwd = root) {
 }
 await mkdir(scratch, { recursive: false });
 try {
-	const packed = JSON.parse(
-		run('npm', [
-			'pack',
-			'--ignore-scripts',
-			'--json',
-			'--pack-destination',
-			scratch,
-		]),
-	)[0];
-	assert(packed?.filename);
-	const names = packed.files.map((entry) => entry.path);
-	assert(names.includes('dist/browser/browserArtifactFile.worker.js'));
-	assert(names.includes('dist/browser/browserArtifactMetadata.worker.js'));
-	assert(names.includes('dist/index.d.ts'));
+	const metadata = JSON.parse(
+		await readFile(resolve(root, 'package.json'), 'utf8'),
+	);
+	const filename = `${metadata.name}-${metadata.version}.tgz`;
+	const tarball = resolve(scratch, filename);
+	run('bun', [
+		'pm',
+		'pack',
+		'--ignore-scripts',
+		'--filename',
+		tarball,
+		'--quiet',
+	]);
 	const consumer = resolve(scratch, 'consumer');
 	await mkdir(consumer);
 	await writeFile(
@@ -39,18 +38,25 @@ try {
 		JSON.stringify({ type: 'module', private: true }),
 	);
 	run(
-		'npm',
+		'bun',
 		[
-			'install',
+			'add',
 			'--ignore-scripts',
-			'--no-audit',
-			'--no-fund',
-			'--package-lock=false',
-			'--offline',
-			resolve(scratch, packed.filename),
+			'--no-save',
+			'--omit=peer',
+			'--omit=optional',
+			tarball,
 		],
 		consumer,
 	);
+	const names = await readdir(
+		resolve(consumer, 'node_modules/unified-asset-loader/dist'),
+		{ recursive: true },
+	);
+	assert(names.includes('browser/browserArtifactFile.worker.js'));
+	assert(names.includes('browser/browserArtifactMetadata.worker.js'));
+	assert(names.includes('index.d.ts'));
+
 	await writeFile(
 		resolve(consumer, 'verify.mjs'),
 		`
@@ -61,10 +67,11 @@ assert.equal(typeof createUnifiedAssetLoader, 'function');
 assert.equal(typeof loadBrowserArtifact, 'function');
 assert.equal(typeof browserArtifactResourceCapacity, 'function');
 assert.equal(resolveArtifactLoadSummary([]).total, 0);
-console.log('npm tarball: core and browser entrypoints imported without React or repository sources');
+console.log('Bun package: core and browser entrypoints imported without React or repository sources');
 `,
 	);
 	process.stdout.write(run(process.execPath, ['verify.mjs'], consumer));
+	process.stdout.write(run('node', ['verify.mjs'], consumer));
 	await writeFile(
 		resolve(consumer, 'verify.mts'),
 		`
@@ -108,11 +115,11 @@ export async function typedConsumer(ports: AssetLoaderPorts) {
 		],
 		consumer,
 	);
-	console.log('npm tarball: standalone TypeScript consumer validated');
+	console.log('Bun package: standalone TypeScript consumer validated');
 
 	for (const worker of ['browserArtifactFile', 'browserArtifactMetadata']) {
 		run(
-			process.execPath,
+			'node',
 			[
 				'--check',
 				resolve(
@@ -125,9 +132,7 @@ export async function typedConsumer(ports: AssetLoaderPorts) {
 		);
 	}
 
-	console.log(
-		`npm tarball verified: ${packed.filename}, ${names.length} files`,
-	);
+	console.log(`Bun package verified: ${filename}, ${names.length} files`);
 } finally {
 	await rm(scratch, { recursive: true, force: true });
 }

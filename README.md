@@ -5,10 +5,10 @@ Asset loading with shared requests, validation, resumable chunk transfers, cache
 ## Install
 
 ```sh
-npm install unified-asset-loader
+bun add unified-asset-loader
 ```
 
-The package is ESM and includes JavaScript, TypeScript declarations and browser Workers. Node.js22 or later is required for development and core usage. Browser use requires an ESM bundler that handles `new Worker(new URL(..., import.meta.url))`, such as Vite.
+The package is ESM and includes JavaScript, TypeScript declarations and browser Workers. Bun1.3.14 or later is used for development. Node.js24.22.1 LTS is pinned for Node.js compatibility checks and consuming Node.js applications. Browser use requires an ESM bundler that handles `new Worker(new URL(..., import.meta.url))`, such as Vite.
 
 ## Entrypoints
 
@@ -138,15 +138,15 @@ The OPFS Worker adapter requires a secure context, OPFS synchronous access handl
 ## Development and publishing
 
 ```sh
-npm install
-npm run build
-npm run lint
+bun install --frozen-lockfile
+bun run build
+bun run lint
 bun test tests
-npm pack
+bun pm pack
 ```
 
-`npm run build` emits ESM and declarations and rewrites Worker URLs to the emitted `.js` files. `npm pack` rebuilds through `prepack`. The package contains only `dist`, this README and the MIT license. `npm run verify:package -- /absolute/path/to/new-scratch-directory` installs the tarball offline into an isolated consumer, imports the core and browser without UI peers, and checks emitted Worker assets. The scratch directory is removed afterward.
+`bun run build` emits ESM and declarations and rewrites Worker URLs to the emitted `.js` files. `bun pm pack` rebuilds through `prepack`. The package contains only `dist`, this README and the MIT license. `bun run verify:package /absolute/path/to/new-scratch-directory` installs the tarball with Bun into an isolated consumer without UI peers, imports the core and browser without UI peers, and checks emitted Worker assets. The scratch directory is removed afterward.
 
 For source development, enable the repository hooks with `git config core.hooksPath .githooks`. The hooks compile the package and run its tests; they do not depend on a consuming application.
 
-The package name is `unified-asset-loader`, the initial version is `0.1.0`, and the license is MIT. Registry availability, the publisher account and actual npm publication must be confirmed before running `npm publish`.
+The package name is `unified-asset-loader`, the initial version is `0.1.0`, and the license is MIT. Registry availability, the publisher account and actual npm publication must be confirmed before running `bun publish`.
