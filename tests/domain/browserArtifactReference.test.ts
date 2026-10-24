@@ -9,7 +9,7 @@ test('catalog参照へ呼出元固有fieldを保存しない', () => {
 		label: 'example-texture',
 		dependencies: ['textures/example.png'],
 		contentNames: ['emoji'],
-		archiveId: 'archive-id',
+		collectionId: 'collection-id',
 	};
 
 	expect(locallyMaterializedBrowserArtifactReference(catalogEntry)).toEqual({

@@ -134,8 +134,7 @@ export function resolveArtifactLoadSummary(
 }
 
 function progressStage(entry: ArtifactLoadSummaryEntry): string {
-	if (entry.progress !== null)
-		return entry.progress.stage;
+	if (entry.progress !== null) return entry.progress.stage;
 	return 'prepare';
 }
 

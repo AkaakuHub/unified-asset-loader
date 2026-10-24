@@ -53,7 +53,7 @@ function createStorage(): AssetLoaderPorts {
 	};
 }
 
-test('ordinary GLB bytes are cached without a game server or custom HTTP headers', async () => {
+test('ordinary GLB bytes are cached using standard HTTP responses', async () => {
 	const bytes = new Uint8Array([0x67, 0x6c, 0x54, 0x46, 2, 0, 0, 0]);
 	let requests = 0;
 	let decodes = 0;

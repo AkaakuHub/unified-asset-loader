@@ -1,4 +1,3 @@
-import { formatArtifactLoadLabel } from '../presentation/artifactLoadLabels.ts';
 import {
 	Box,
 	Button,
@@ -9,6 +8,7 @@ import {
 } from '@mui/material';
 import type { ReactNode } from 'react';
 import type { ArtifactLoadSummary } from '../domain/artifactLoadSummary.ts';
+import { formatArtifactLoadLabel } from '../presentation/artifactLoadLabels.ts';
 import { ArtifactSegmentedProgress } from './ArtifactSegmentedProgress.tsx';
 
 export function ArtifactLoadProgress({

@@ -38,8 +38,8 @@ export async function loadBrowserJsonArtifact<Value>(
 		shouldCacheMetadata: () => input.metadataPolicy === 'cache-first',
 		reference: () => null,
 		assemble: (value) => value,
-		validate: (_metadata, binary) => {
-			if (binary !== null)
+		validate: (...parameters) => {
+			if (parameters[1] !== null)
 				throw new Error('Browser JSON artifact binary is unexpected');
 		},
 		reportProgress: input.reportProgress,

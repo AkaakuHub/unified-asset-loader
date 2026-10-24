@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+bun run lint
 node scripts/build.mjs
 bun test tests
 if [[ -n "${UNIFIED_ASSET_LOADER_VERIFY_DIRECTORY:-}" ]]; then

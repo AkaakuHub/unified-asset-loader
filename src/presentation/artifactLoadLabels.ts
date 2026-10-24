@@ -17,14 +17,19 @@ export function contentArtifactLoadStageLabel(
 	return contentArtifactLoadStageLabels[stage];
 }
 
-
 const stateLabels: Readonly<Record<string, string>> = {
- prepare: '準備', waiting: '開始待ち', complete: '完了', failed: '失敗', processing: '処理中',
+	prepare: '準備',
+	waiting: '開始待ち',
+	complete: '完了',
+	failed: '失敗',
+	processing: '処理中',
 };
 
 export function formatArtifactLoadLabel(label: string): string {
- if (Object.hasOwn(contentArtifactLoadStageLabels, label)) {
-  return contentArtifactLoadStageLabel(label as ContentArtifactLoadProgress['stage']);
- }
- return stateLabels[label] ?? label;
+	if (Object.hasOwn(contentArtifactLoadStageLabels, label)) {
+		return contentArtifactLoadStageLabel(
+			label as ContentArtifactLoadProgress['stage'],
+		);
+	}
+	return stateLabels[label] ?? label;
 }

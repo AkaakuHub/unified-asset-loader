@@ -140,6 +140,7 @@ The OPFS Worker adapter requires a secure context, OPFS synchronous access handl
 ```sh
 npm install
 npm run build
+npm run lint
 bun test tests
 npm pack
 ```
