@@ -289,9 +289,13 @@ function resolveProgressPercent(
 
 function resolveDetailProgressPercent(entry: ArtifactLoadSummaryEntry): number {
 	if (isArtifactReady(entry)) return 100;
-	return entry.progress === null
-		? 0
-		: contentArtifactLoadPercent(entry.progress);
+	const current =
+		entry.progress === null ? 0 : contentArtifactLoadPercent(entry.progress);
+	return (entry.progressHistory ?? []).reduce(
+		(percent, progress) =>
+			Math.max(percent, contentArtifactLoadPercent(progress)),
+		current,
+	);
 }
 
 function isArtifactReady(entry: ArtifactLoadSummaryEntry): boolean {
