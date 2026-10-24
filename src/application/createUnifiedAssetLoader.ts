@@ -203,7 +203,12 @@ export function createUnifiedAssetLoader(ports: AssetLoaderPorts) {
 				if (cachedMetadata !== undefined) {
 					contract.reportMetadata?.(cachedMetadata);
 					return {
-						value: await finishArtifact(contract, cachedMetadata, null),
+						value: await finishArtifact(
+							contract,
+							cachedMetadata,
+							null,
+							'required',
+						),
 						source: 'cache',
 					};
 				}
@@ -275,7 +280,12 @@ export function createUnifiedAssetLoader(ports: AssetLoaderPorts) {
 						if (binary !== undefined) {
 							try {
 								return {
-									value: await finishArtifact(contract, metadata, binary),
+									value: await finishArtifact(
+										contract,
+										metadata,
+										binary,
+										'required',
+									),
 									source: 'cache',
 								};
 							} catch (cause) {
@@ -321,10 +331,19 @@ export function createUnifiedAssetLoader(ports: AssetLoaderPorts) {
 			}
 			contract.reportMetadata?.(metadata);
 			return {
-				value: await finishArtifact(contract, metadata, null),
+				value: await finishArtifact(contract, metadata, null, 'required'),
 				source: 'network',
 			};
 		}
+		const initial = contract.initialBinary?.(decodedMetadata, metadata);
+		const initialBinary =
+			initial === undefined || initial === null
+				? null
+				: verifiedInitialBinary(reference, initial);
+		const initialValidated =
+			initialBinary !== null && contract.materialization === 'binary';
+		if (initialValidated)
+			await validateArtifact(contract, metadata, initialBinary, false);
 		let cachedBinary: Uint8Array | null;
 		try {
 			const initialized = await initializeBrowserArtifactCache(
@@ -341,11 +360,6 @@ export function createUnifiedAssetLoader(ports: AssetLoaderPorts) {
 			);
 			if (partial.kind === 'miss')
 				throw new Error('Browser artifact cache manifest is absent');
-			const initial = contract.initialBinary?.(decodedMetadata, metadata);
-			const initialBinary =
-				initial === undefined || initial === null
-					? null
-					: verifiedInitialBinary(reference, initial);
 			if (partial.kind === 'partial') {
 				if (initialBinary === null)
 					await transferMissingChunks(
@@ -366,7 +380,12 @@ export function createUnifiedAssetLoader(ports: AssetLoaderPorts) {
 			throw cause;
 		}
 		return {
-			value: await finishArtifact(contract, metadata, cachedBinary),
+			value: await finishArtifact(
+				contract,
+				metadata,
+				cachedBinary,
+				initialValidated ? 'complete' : 'required',
+			),
 			source: 'network',
 		};
 	}
@@ -593,18 +612,39 @@ export function createUnifiedAssetLoader(ports: AssetLoaderPorts) {
 		return complete.binary;
 	}
 
+	async function validateArtifact<Metadata, Result>(
+		contract: BrowserArtifactLoaderContract<Metadata, Result>,
+		metadata: Metadata,
+		binary: Uint8Array | null,
+		invalidateOnFailure: boolean,
+	): Promise<void> {
+		contract.reportProgress?.(
+			contentArtifactLoadProgress({ stage: 'validate', stageCompleted: false }),
+		);
+		try {
+			await contract.validate(metadata, binary);
+		} catch (cause) {
+			if (
+				invalidateOnFailure &&
+				!contract.signal.aborted &&
+				!(cause instanceof DOMException && cause.name === 'AbortError')
+			)
+				await deleteBrowserArtifactAlias(contract.alias);
+			throw cause;
+		}
+		contract.reportProgress?.(
+			contentArtifactLoadProgress({ stage: 'validate', stageCompleted: true }),
+		);
+	}
+
 	async function finishArtifact<Metadata, Result>(
 		contract: BrowserArtifactLoaderContract<Metadata, Result>,
 		metadata: Metadata,
 		binary: Uint8Array | null,
+		validation: 'required' | 'complete',
 	): Promise<Result> {
-		contract.reportProgress?.(
-			contentArtifactLoadProgress({ stage: 'validate', stageCompleted: false }),
-		);
-		await contract.validate(metadata, binary);
-		contract.reportProgress?.(
-			contentArtifactLoadProgress({ stage: 'validate', stageCompleted: true }),
-		);
+		if (validation === 'required')
+			await validateArtifact(contract, metadata, binary, true);
 		contract.reportProgress?.(
 			contentArtifactLoadProgress({ stage: 'decode', stageCompleted: false }),
 		);

@@ -22,6 +22,7 @@ export type BinaryAssetRequest<Asset> = Readonly<{
 	source: BinaryAssetSource;
 	signal: AbortSignal;
 	decode(bytes: Uint8Array): Asset | Promise<Asset>;
+	validate?(bytes: Uint8Array): void | Promise<void>;
 	reportProgress?:
 		| ((progress: ContentArtifactLoadProgress) => void)
 		| undefined;
@@ -102,9 +103,10 @@ export function createBinaryAssetLoader(
 					return { binary: value.binary, reference: metadata.reference };
 				},
 				cacheMetadata: (metadata) => metadata,
-				validate: (metadata, binary) => {
+				validate: async (metadata, binary) => {
 					if (binary === null || binary.byteLength !== metadata.reference.size)
 						throw new Error('Binary asset byte length differs');
+					await request.validate?.(binary);
 				},
 				assemble: (metadata, binary) => {
 					if (binary === null)
