@@ -1,6 +1,6 @@
 {
 	"name": "unified-asset-loader",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Framework-independent asset loading, validated caching and progress APIs with optional browser, React and MUI adapters.",
 	"type": "module",
 	"license": "MIT",
