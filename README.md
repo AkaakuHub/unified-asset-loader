@@ -129,7 +129,7 @@ function AssetStatus() {
 
 React19 is an optional peer dependency. Hooks expose state without imposing markup or styles. `useBrowserArtifacts` supports collections and cancellation; `useArtifactLoadWorkflow` exposes `summary`, `execute` and `reset`. `runArtifactLoadStep`, `runArtifactLocalStep` and `resolveArtifactLoadSummary` are available independently of React. The core reports stage and state identifiers; display wording belongs to the presentation layer (`unified-asset-loader/presentation/artifactLoadLabels`) or the consuming application.
 
-For the supplied MUI progress UI, install React19, MUI9 and Emotion11 in the consuming application. Import `ArtifactLoadProgress` from `unified-asset-loader/mui` and pass `title`, `completionLabel` and `summary`. Customize its container with `sx`, inject controls with `actions`, and provide an error renderer with `renderError`, and customize stage labels with `formatStageLabel`, and set segment colors with `progressColors`. MUI themes control typography, spacing and palette. For full layout control, render the summary directly using your own components.
+For the MUI progress UI, install React19, MUI9 and Emotion11. Import `ArtifactLoadProgress` from `unified-asset-loader/mui` and pass `title`, `completionLabel`, `idleLabel`, `summary`, `locale`, `messages` and `formatStageLabel`. The consuming application supplies wording through the `ArtifactLoadMessages` and `ArtifactLoadStageLabels` contracts in the presentation modules. Optional `sx`, `actions`, `renderError` and `progressColors` control layout, actions, error rendering and segment colors. MUI themes control typography, spacing and palette.
 
 ## Browser requirements
 
