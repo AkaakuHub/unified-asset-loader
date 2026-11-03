@@ -6,46 +6,57 @@ import {
 	Stack,
 	Typography,
 } from '@mui/material';
-import type { ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import type { ArtifactLoadSummary } from '../domain/artifactLoadSummary.ts';
-import { formatArtifactLoadLabel } from '../presentation/artifactLoadLabels.ts';
+import {
+	type ArtifactLoadMessages,
+	createArtifactLoadProgressFormatters,
+} from '../presentation/artifactLoadProgressFormatting.ts';
 import { ArtifactSegmentedProgress } from './ArtifactSegmentedProgress.tsx';
 
 export function ArtifactLoadProgress({
+	locale,
+	messages,
 	title,
 	completionLabel,
 	summary,
-	idleLabel = '準備開始を待っています。',
+	idleLabel,
 	activeSteps = [],
 	onRetry,
 	actions,
 	renderError,
-	formatStageLabel = formatArtifactLoadLabel,
+	formatStageLabel,
 	progressColors,
 	sx,
 }: Readonly<{
+	locale: string;
+	messages: ArtifactLoadMessages;
 	title: string;
 	completionLabel: string;
 	summary: ArtifactLoadSummary;
-	idleLabel?: string;
+	idleLabel: string;
 	activeSteps?: readonly string[];
 	onRetry?: () => void;
 	actions?: ReactNode;
 	renderError?: (message: string) => ReactNode;
-	formatStageLabel?: (label: string) => string;
+	formatStageLabel: (label: string) => string;
 	progressColors?: Readonly<{ filledColor?: string; emptyColor?: string }>;
 	sx?: import('@mui/material').SxProps<import('@mui/material').Theme>;
 }>): React.ReactElement {
+	const format = useMemo(
+		() => createArtifactLoadProgressFormatters(locale),
+		[locale],
+	);
 	const message =
 		summary.failed > 0
-			? `準備に失敗しました：${String(summary.failed)}件`
+			? messages.failedCount(format.count(summary.failed))
 			: activeSteps.length > 0
-				? `${String(activeSteps.length)}工程を処理しています。`
+				? messages.activeStepCount(format.count(activeSteps.length))
 				: summary.completed
 					? completionLabel
 					: summary.total === 0
 						? idleLabel
-						: `${String(summary.processing)}件を処理しています。`;
+						: messages.processingCount(format.count(summary.processing));
 	return (
 		<Paper
 			variant="outlined"
@@ -78,10 +89,10 @@ export function ArtifactLoadProgress({
 							sx={{ fontVariantNumeric: 'tabular-nums' }}
 						>
 							{summary.failed > 0
-								? '失敗'
+								? messages.failed
 								: activeSteps.length > 0
-									? '処理中'
-									: `${String(summary.progressPercent)}%`}
+									? messages.processing
+									: format.percent(summary.progressPercent)}
 						</Typography>
 						{actions}
 					</Stack>
@@ -89,7 +100,7 @@ export function ArtifactLoadProgress({
 				<ArtifactSegmentedProgress
 					{...progressColors}
 					percent={summary.progressPercent}
-					label={`${title}の${activeSteps.length > 0 ? 'asset工程' : '全体'}進捗`}
+					label={messages.overallProgress(title, activeSteps.length > 0)}
 					density="overview"
 				/>
 				<Stack
@@ -101,15 +112,17 @@ export function ArtifactLoadProgress({
 						variant="caption"
 						sx={{ fontVariantNumeric: 'tabular-nums' }}
 					>
-						{activeSteps.length > 0 ? 'asset工程' : '準備進捗'}{' '}
-						{summary.progressPercent}%
+						{activeSteps.length > 0
+							? messages.assetSteps
+							: messages.preparationProgress}{' '}
+						{format.percent(summary.progressPercent)}
 					</Typography>
 					<Typography
 						variant="caption"
 						sx={{ fontVariantNumeric: 'tabular-nums' }}
 					>
-						データ受信{' '}
-						{formatByteProgress(
+						{messages.dataReceived}{' '}
+						{format.bytes(
 							Math.max(summary.preparedBytes, summary.networkReceivedBytes),
 							summary.totalBytes,
 						)}
@@ -119,14 +132,16 @@ export function ArtifactLoadProgress({
 						color="text.secondary"
 						sx={{ fontVariantNumeric: 'tabular-nums' }}
 					>
-						今回の通信 {formatMiB(summary.networkReceivedBytes)}
+						{messages.currentTransfer}{' '}
+						{format.size(summary.networkReceivedBytes)}
 					</Typography>
 					<Typography
 						variant="caption"
 						color="text.secondary"
 						sx={{ fontVariantNumeric: 'tabular-nums' }}
 					>
-						成果物 {summary.succeeded}/{summary.total}件
+						{messages.artifacts} {format.count(summary.succeeded)}/
+						{format.count(summary.total)}
 					</Typography>
 					{summary.totalArtifacts > 0 ? (
 						<Typography
@@ -134,7 +149,8 @@ export function ArtifactLoadProgress({
 							color="text.secondary"
 							sx={{ fontVariantNumeric: 'tabular-nums' }}
 						>
-							source {summary.completedArtifacts}/{summary.totalArtifacts}
+							{messages.sources} {format.count(summary.completedArtifacts)}/
+							{format.count(summary.totalArtifacts)}
 						</Typography>
 					) : null}
 				</Stack>
@@ -145,7 +161,7 @@ export function ArtifactLoadProgress({
 					<Typography variant="caption">{message}</Typography>
 					{summary.failed > 0 && onRetry !== undefined ? (
 						<Button size="small" onClick={onRetry}>
-							再試行
+							{messages.retry}
 						</Button>
 					) : null}
 				</Stack>
@@ -207,7 +223,12 @@ export function ArtifactLoadProgress({
 										<ArtifactStatusText
 											message={
 												detail.error ??
-												detailProgressLabel(detail, formatStageLabel)
+												detailProgressLabel(
+													detail,
+													formatStageLabel,
+													format,
+													messages,
+												)
 											}
 											renderError={renderError}
 											status={detail.status}
@@ -217,7 +238,10 @@ export function ArtifactLoadProgress({
 									<ArtifactSegmentedProgress
 										{...progressColors}
 										percent={detail.progressPercent}
-										label={`${detail.assetType} ${detail.label}の進捗`}
+										label={messages.detailProgress(
+											detail.assetType,
+											detail.label,
+										)}
 										density="detail"
 									/>
 									<Stack
@@ -226,8 +250,8 @@ export function ArtifactLoadProgress({
 										sx={{ flexWrap: 'wrap', columnGap: 1 }}
 									>
 										<Typography variant="caption" color="text.secondary">
-											データ受信{' '}
-											{formatByteProgress(
+											{messages.dataReceived}{' '}
+											{format.bytes(
 												Math.max(
 													detail.transferredBytes,
 													detail.networkReceivedBytes,
@@ -236,12 +260,14 @@ export function ArtifactLoadProgress({
 											)}
 										</Typography>
 										<Typography variant="caption" color="text.secondary">
-											通信 {formatMiB(detail.networkReceivedBytes)}
+											{messages.transfer}{' '}
+											{format.size(detail.networkReceivedBytes)}
 										</Typography>
 										{detail.totalArtifacts > 0 ? (
 											<Typography variant="caption" color="text.secondary">
-												source {detail.completedArtifacts}/
-												{detail.totalArtifacts}
+												{messages.sources}{' '}
+												{format.count(detail.completedArtifacts)}/
+												{format.count(detail.totalArtifacts)}
 											</Typography>
 										) : null}
 									</Stack>
@@ -345,15 +371,17 @@ function phaseStatusColor(
 function detailProgressLabel(
 	detail: ArtifactLoadSummary['details'][number],
 	formatStageLabel: (label: string) => string,
+	format: ReturnType<typeof createArtifactLoadProgressFormatters>,
+	messages: ArtifactLoadMessages,
 ): string {
 	const artifactProgress =
 		detail.totalArtifacts > 1
-			? `${String(detail.completedArtifacts)}/${String(detail.totalArtifacts)}source`
+			? `${format.count(detail.completedArtifacts)}/${format.count(detail.totalArtifacts)} ${messages.sources}`
 			: null;
 	const byteProgress =
 		detail.totalBytes === 0
 			? null
-			: formatByteProgress(
+			: format.bytes(
 					Math.max(detail.transferredBytes, detail.networkReceivedBytes),
 					detail.totalBytes,
 				);
@@ -365,14 +393,4 @@ function detailProgressLabel(
 	]
 		.filter((value) => value !== null)
 		.join(' ');
-}
-
-function formatByteProgress(bytes: number, totalBytes: number): string {
-	return totalBytes === 0
-		? formatMiB(bytes)
-		: `${formatMiB(bytes)}/${formatMiB(totalBytes)}`;
-}
-
-function formatMiB(bytes: number): string {
-	return `${(bytes / 1024 / 1024).toFixed(1)}MiB`;
 }
