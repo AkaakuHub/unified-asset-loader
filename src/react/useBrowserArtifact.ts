@@ -28,6 +28,7 @@ export function useBrowserArtifacts<Loaded>(input: {
 	requests: readonly BrowserArtifactRequest<Loaded>[];
 	abortSignal?: AbortSignal;
 	abortOnFailure?: boolean;
+	retainLoaded?: boolean;
 	onLoadFailure?(cause: unknown): void;
 }): Readonly<{
 	loads: ReadonlyMap<string, BrowserArtifactCollectionEntry<Loaded>>;
@@ -38,6 +39,18 @@ export function useBrowserArtifacts<Loaded>(input: {
 	if (new Set(requestIdentities).size !== requestIdentities.length)
 		throw new Error('Browser artifact request identity is duplicated');
 	const requestSetIdentity = `${JSON.stringify(requestIdentities)}:${String(retryKey)}`;
+	const retained = useRef({
+		retryKey,
+		abortSignal: input.abortSignal,
+		entries: new Map<string, BrowserArtifactCollectionEntry<Loaded>>(),
+	});
+	const reusable =
+		input.enabled &&
+		input.retainLoaded === true &&
+		retained.current.retryKey === retryKey &&
+		retained.current.abortSignal === input.abortSignal
+			? retained.current.entries
+			: undefined;
 	const loadersRef = useRef(new Map<string, BrowserArtifactLoader<Loaded>>());
 	const onLoadFailureRef = useRef(input.onLoadFailure);
 	loadersRef.current = new Map(
@@ -52,10 +65,20 @@ export function useBrowserArtifacts<Loaded>(input: {
 		const abort = new AbortController();
 		const activeLoaders = new Map(loadersRef.current);
 		const activeIdentities = [...activeLoaders.keys()];
-		setState({
-			requestSetIdentity,
-			loads: createBrowserArtifactCollectionEntries(activeIdentities),
-		});
+		const previous = retained.current;
+		const entries =
+			input.enabled &&
+			input.retainLoaded &&
+			previous.retryKey === retryKey &&
+			previous.abortSignal === input.abortSignal
+				? previous.entries
+				: new Map<string, BrowserArtifactCollectionEntry<Loaded>>();
+		retained.current = { retryKey, abortSignal: input.abortSignal, entries };
+		let loads = createBrowserArtifactCollectionEntries(
+			activeIdentities,
+			entries,
+		);
+		setState({ requestSetIdentity, loads });
 		if (!input.enabled) return () => abort.abort();
 		const abortPendingLoads = () => {
 			abort.abort(input.abortSignal?.reason);
@@ -72,6 +95,7 @@ export function useBrowserArtifacts<Loaded>(input: {
 			once: true,
 		});
 		for (const identity of activeIdentities) {
+			if (entries.has(identity)) continue;
 			const load = activeLoaders.get(identity);
 			if (load === undefined)
 				throw new Error('Browser artifact loader is absent');
@@ -113,26 +137,31 @@ export function useBrowserArtifacts<Loaded>(input: {
 		function updateLoads(
 			event: Parameters<typeof reduceBrowserArtifactCollection<Loaded>>[1],
 		): void {
-			setState((current) => {
-				if (current.requestSetIdentity !== requestSetIdentity) return current;
-				return {
-					requestSetIdentity,
-					loads: reduceBrowserArtifactCollection(current.loads, event),
-				};
-			});
+			loads = reduceBrowserArtifactCollection(loads, event);
+			if (
+				input.retainLoaded &&
+				event.type === 'completed' &&
+				event.value !== null
+			) {
+				const entry = loads.get(event.identity);
+				if (entry !== undefined) entries.set(event.identity, entry);
+			}
+			setState({ requestSetIdentity, loads });
 		}
 	}, [
 		input.abortOnFailure,
 		input.abortSignal,
 		input.enabled,
+		input.retainLoaded,
 		requestSetIdentity,
+		retryKey,
 	]);
 	const retry = useCallback(() => setRetryKey((current) => current + 1), []);
 	return {
 		loads:
 			state.requestSetIdentity === requestSetIdentity
 				? state.loads
-				: createBrowserArtifactCollectionEntries(requestIdentities),
+				: createBrowserArtifactCollectionEntries(requestIdentities, reusable),
 		retry,
 	};
 }

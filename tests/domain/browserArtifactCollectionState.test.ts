@@ -61,3 +61,17 @@ test('一件の失敗で未完了artifactだけを失敗させる', () => {
 	expect(entries.get('font')?.error).toBe('font failed');
 	expect(entries.get('texture')?.error).toBe('collection aborted');
 });
+
+test('要求差し替えでは同じidentityの完了済みartifactだけを再使用する', () => {
+	const previous = reduceBrowserArtifactCollection(
+		createBrowserArtifactCollectionEntries<Uint8Array>(['mic', 'pending']),
+		{ type: 'completed', identity: 'mic', value: new Uint8Array([24]) },
+	);
+	const next = createBrowserArtifactCollectionEntries(
+		['pending', 'mic', 'new'],
+		previous,
+	);
+	expect(next.get('mic')).toBe(previous.get('mic'));
+	expect(next.get('pending')?.value).toBeNull();
+	expect(next.get('new')?.value).toBeNull();
+});

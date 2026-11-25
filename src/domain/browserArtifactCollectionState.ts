@@ -30,8 +30,14 @@ const emptyEntry = {
 
 export function createBrowserArtifactCollectionEntries<Loaded>(
 	identities: readonly string[],
+	completed?: ReadonlyMap<string, BrowserArtifactCollectionEntry<Loaded>>,
 ): ReadonlyMap<string, BrowserArtifactCollectionEntry<Loaded>> {
-	return new Map(identities.map((identity) => [identity, emptyEntry]));
+	return new Map(
+		identities.map((identity) => {
+			const previous = completed?.get(identity);
+			return [identity, previous?.value == null ? emptyEntry : previous];
+		}),
+	);
 }
 
 export function reduceBrowserArtifactCollection<Loaded>(
