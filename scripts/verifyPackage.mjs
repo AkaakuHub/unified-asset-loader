@@ -103,6 +103,7 @@ export async function typedConsumer(ports: AssetLoaderPorts) {
 		[
 			compiler,
 			'--noEmit',
+			'--ignoreConfig',
 			'--strict',
 			'--module',
 			'NodeNext',
