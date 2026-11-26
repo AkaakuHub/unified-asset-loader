@@ -28,6 +28,7 @@ import {
 	browserArtifactOpfsDirectoryName,
 } from './browserArtifactOpfs.ts';
 import { browserArtifactRuntimeCapacity } from './browserArtifactRuntimeCapacity.ts';
+import { trackBrowserOpfsUsage } from './browserOpfsUsage.ts';
 
 assertBrowserWorkerCrossOriginIsolated('Browser artifact metadata Worker');
 
@@ -302,14 +303,26 @@ async function removeArtifact(
 			.filter((alias) => alias.artifactKey === artifactKey)
 			.map(({ alias }) => removeAlias(directories, alias)),
 	);
-	await Promise.all([
-		removeFile(directories.artifacts, artifactFileName(artifactKey)),
-		removeFile(directories.root, browserArtifactBinaryFileName(artifactKey)),
-		removeFile(
-			directories.root,
-			browserArtifactCompletionFileName(artifactKey),
-		),
-	]);
+	const manifest = artifactFileName(artifactKey);
+	const binary = browserArtifactBinaryFileName(artifactKey);
+	const completion = browserArtifactCompletionFileName(artifactKey);
+	await trackBrowserOpfsUsage(
+		browserArtifactOpfsDirectoryName,
+		directories.root,
+		artifactKey,
+		[
+			`/${browserArtifactMetadataDirectoryName}/${browserArtifactManifestDirectoryName}/${manifest}`,
+			`/${binary}`,
+			`/${completion}`,
+		],
+		async () => {
+			await Promise.all([
+				removeFile(directories.artifacts, manifest),
+				removeFile(directories.root, binary),
+				removeFile(directories.root, completion),
+			]);
+		},
+	);
 }
 
 function artifactReferenceCount(
@@ -478,10 +491,15 @@ async function persistAlias(
 	directories: CacheDirectories,
 	alias: BrowserArtifactCachedAlias,
 ): Promise<void> {
-	await writeJson(
-		directories.aliases,
-		browserArtifactAliasStorageKey(alias.alias),
-		alias,
+	const name = browserArtifactAliasStorageKey(alias.alias);
+	await trackBrowserOpfsUsage(
+		browserArtifactOpfsDirectoryName,
+		directories.root,
+		`alias:${name}`,
+		[
+			`/${browserArtifactMetadataDirectoryName}/${browserArtifactAliasDirectoryName}/${name}`,
+		],
+		() => writeJson(directories.aliases, name, alias),
 	);
 }
 
@@ -489,10 +507,15 @@ async function persistArtifact(
 	directories: CacheDirectories,
 	artifact: BrowserArtifactCachedArtifact,
 ): Promise<void> {
-	await writeJson(
-		directories.artifacts,
-		artifactFileName(artifact.artifactKey),
-		artifact,
+	const name = artifactFileName(artifact.artifactKey);
+	await trackBrowserOpfsUsage(
+		browserArtifactOpfsDirectoryName,
+		directories.root,
+		artifact.artifactKey,
+		[
+			`/${browserArtifactMetadataDirectoryName}/${browserArtifactManifestDirectoryName}/${name}`,
+		],
+		() => writeJson(directories.artifacts, name, artifact),
 	);
 }
 
@@ -564,7 +587,16 @@ async function removeAlias(
 	directories: CacheDirectories,
 	alias: string,
 ): Promise<void> {
-	await removeFile(directories.aliases, browserArtifactAliasStorageKey(alias));
+	const name = browserArtifactAliasStorageKey(alias);
+	await trackBrowserOpfsUsage(
+		browserArtifactOpfsDirectoryName,
+		directories.root,
+		`alias:${name}`,
+		[
+			`/${browserArtifactMetadataDirectoryName}/${browserArtifactAliasDirectoryName}/${name}`,
+		],
+		() => removeFile(directories.aliases, name),
+	);
 }
 
 function artifactFileName(artifactKey: string): string {

@@ -15,6 +15,7 @@ import {
 	browserArtifactCompletionFileName,
 	browserArtifactOpfsDirectoryName,
 } from './browserArtifactOpfs.ts';
+import { trackBrowserOpfsUsage } from './browserOpfsUsage.ts';
 
 assertBrowserWorkerCrossOriginIsolated('Browser artifact file Worker');
 
@@ -167,50 +168,62 @@ async function write(
 			throw new Error('Browser artifact OPFS chunk identity differs');
 	}
 	const directory = await openDirectory();
-	const binaryHandle = await directory.getFileHandle(
-		browserArtifactBinaryFileName(artifact.artifactKey),
-		{ create: true },
+	const binaryName = browserArtifactBinaryFileName(artifact.artifactKey);
+	const completionName = browserArtifactCompletionFileName(
+		artifact.artifactKey,
 	);
-	const completionHandle = await directory.getFileHandle(
-		browserArtifactCompletionFileName(artifact.artifactKey),
-		{ create: true },
-	);
-	const binaryAccess = await createSyncAccessHandle(binaryHandle);
-	const completionAccess = await createSyncAccessHandle(completionHandle);
-	try {
-		const completion = createBrowserArtifactFileCompletion(chunkCount);
-		if (
-			completionAccess.getSize() === completion.byteLength &&
-			binaryAccess.getSize() <= artifact.size
-		) {
-			const readBytes = completionAccess.read(completion);
-			if (readBytes !== completion.byteLength)
-				throw new Error('Browser artifact OPFS completion read was partial');
-		} else {
-			binaryAccess.truncate(0);
-			completionAccess.truncate(0);
-		}
-		for (const chunk of chunks) {
-			const bytes = new Uint8Array(chunk.bytes);
-			const written = binaryAccess.write(bytes, {
-				at: chunk.index * contentAddressedArtifactChunkSize,
+	await trackBrowserOpfsUsage(
+		browserArtifactOpfsDirectoryName,
+		directory,
+		artifact.artifactKey,
+		[`/${binaryName}`, `/${completionName}`],
+		async () => {
+			const binaryHandle = await directory.getFileHandle(binaryName, {
+				create: true,
 			});
-			if (written !== bytes.byteLength)
-				throw new Error('Browser artifact OPFS chunk write was partial');
-		}
-		markBrowserArtifactFileChunksComplete(chunkCount, completion, indexes);
-		if (parseBrowserArtifactFileCompletion(chunkCount, completion).complete)
-			binaryAccess.truncate(artifact.size);
-		completionAccess.truncate(0);
-		const completionWritten = completionAccess.write(completion);
-		if (completionWritten !== completion.byteLength)
-			throw new Error('Browser artifact OPFS completion write was partial');
-		binaryAccess.flush();
-		completionAccess.flush();
-	} finally {
-		binaryAccess.close();
-		completionAccess.close();
-	}
+			const completionHandle = await directory.getFileHandle(completionName, {
+				create: true,
+			});
+			const binaryAccess = await createSyncAccessHandle(binaryHandle);
+			const completionAccess = await createSyncAccessHandle(completionHandle);
+			try {
+				const completion = createBrowserArtifactFileCompletion(chunkCount);
+				if (
+					completionAccess.getSize() === completion.byteLength &&
+					binaryAccess.getSize() <= artifact.size
+				) {
+					const readBytes = completionAccess.read(completion);
+					if (readBytes !== completion.byteLength)
+						throw new Error(
+							'Browser artifact OPFS completion read was partial',
+						);
+				} else {
+					binaryAccess.truncate(0);
+					completionAccess.truncate(0);
+				}
+				for (const chunk of chunks) {
+					const bytes = new Uint8Array(chunk.bytes);
+					const written = binaryAccess.write(bytes, {
+						at: chunk.index * contentAddressedArtifactChunkSize,
+					});
+					if (written !== bytes.byteLength)
+						throw new Error('Browser artifact OPFS chunk write was partial');
+				}
+				markBrowserArtifactFileChunksComplete(chunkCount, completion, indexes);
+				if (parseBrowserArtifactFileCompletion(chunkCount, completion).complete)
+					binaryAccess.truncate(artifact.size);
+				completionAccess.truncate(0);
+				const completionWritten = completionAccess.write(completion);
+				if (completionWritten !== completion.byteLength)
+					throw new Error('Browser artifact OPFS completion write was partial');
+				binaryAccess.flush();
+				completionAccess.flush();
+			} finally {
+				binaryAccess.close();
+				completionAccess.close();
+			}
+		},
+	);
 }
 
 async function createSyncAccessHandle(

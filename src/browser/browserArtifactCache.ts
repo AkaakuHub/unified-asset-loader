@@ -32,6 +32,13 @@ import {
 	writeBrowserArtifactMetadata,
 } from './browserArtifactMetadata.ts';
 
+import { browserArtifactOpfsDirectoryName } from './browserArtifactOpfs.ts';
+import { readBrowserOpfsUsage } from './browserOpfsUsage.ts';
+
+export function readBrowserArtifactCacheUsage(): Promise<number> {
+	return readBrowserOpfsUsage(browserArtifactOpfsDirectoryName);
+}
+
 const protectedAliases = new Set<string>();
 const protectedArtifacts = new Map<string, number>();
 const aliasInvalidation = createBrowserArtifactAliasInvalidation();
