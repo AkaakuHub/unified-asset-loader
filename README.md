@@ -131,6 +131,10 @@ React19 is an optional peer dependency. Hooks expose state without imposing mark
 
 For the MUI progress UI, install React19, MUI9 and Emotion11. Import `ArtifactLoadProgress` from `unified-asset-loader/mui` and pass `title`, `completionLabel`, `idleLabel`, `summary`, `locale`, `messages` and `formatStageLabel`. The consuming application supplies wording through the `ArtifactLoadMessages` and `ArtifactLoadStageLabels` contracts in the presentation modules. Optional `sx`, `actions`, `renderError` and `progressColors` control layout, actions, error rendering and segment colors. MUI themes control typography, spacing and palette.
 
+### Cache usage
+
+`readBrowserArtifactCacheUsage()` returns logical bytes stored by the browser artifact cache, including partial files and metadata. Existing files are indexed on the first read. Later reads use a persistent total updated when files are written or deleted, without loading artifact contents.
+
 ## Browser requirements
 
 The OPFS Worker adapter requires a secure context, OPFS synchronous access handles in Workers, and cross-origin isolation. Serve the application with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`. The core supports other environments through injected ports. Cache failures are reported and rejected; there is no in-memory fallback.
@@ -149,4 +153,4 @@ bun pm pack
 
 For source development, enable the repository hooks with `git config core.hooksPath .githooks`. The hooks compile the package and run its tests; they do not depend on a consuming application.
 
-The package name is `unified-asset-loader`, the initial version is `0.1.0`, and the license is MIT. Registry availability, the publisher account and actual npm publication must be confirmed before running `bun publish`.
+The package is published to npm as `unified-asset-loader` under the MIT license.

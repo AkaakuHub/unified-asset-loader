@@ -62,9 +62,10 @@ try {
 		`
 import assert from 'node:assert/strict';
 import { createUnifiedAssetLoader, browserArtifactResourceCapacity, resolveArtifactLoadSummary } from 'unified-asset-loader';
-import { loadBrowserArtifact } from 'unified-asset-loader/browser';
+import { loadBrowserArtifact, readBrowserArtifactCacheUsage } from 'unified-asset-loader/browser';
 assert.equal(typeof createUnifiedAssetLoader, 'function');
 assert.equal(typeof loadBrowserArtifact, 'function');
+assert.equal(typeof readBrowserArtifactCacheUsage, 'function');
 assert.equal(typeof browserArtifactResourceCapacity, 'function');
 assert.equal(resolveArtifactLoadSummary([]).total, 0);
 console.log('Bun package: core and browser entrypoints imported without React or repository sources');
@@ -77,7 +78,7 @@ console.log('Bun package: core and browser entrypoints imported without React or
 		`
 import { createUnifiedAssetLoader, createBinaryAssetLoader } from 'unified-asset-loader';
 import type { AssetLoaderPorts } from 'unified-asset-loader';
-import { loadBinaryAsset } from 'unified-asset-loader/browser';
+import { loadBinaryAsset, readBrowserArtifactCacheUsage } from 'unified-asset-loader/browser';
 export async function typedConsumer(ports: AssetLoaderPorts) {
  const loader = createBinaryAssetLoader({ loader: createUnifiedAssetLoader(ports), fetch: (url, signal) => fetch(url, { signal }) });
  const request = {
@@ -88,7 +89,7 @@ export async function typedConsumer(ports: AssetLoaderPorts) {
  const result = await loader.load(request);
  const browserResult = await loadBinaryAsset(request);
  const size: number = result.value.byteLength + browserResult.value.byteLength;
- return size;
+ return { size, cacheBytes: await readBrowserArtifactCacheUsage() };
 }
 `,
 	);
